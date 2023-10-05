@@ -21,7 +21,7 @@ let Contact = new schema({
     type: String,
     unique: true,
   },
-  contact_isfavorite: {
+  contact_isFavorite: {
     required: true,
     type: Boolean,
   },

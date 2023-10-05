@@ -1,24 +1,34 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const AddContact = (props: any) => {
+const UpdateContact = (props: any) => {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [errorMessage, setErrorMessage] = useState(undefined);
   const [successMessage, setSuccessMessage] = useState(undefined);
 
-  useEffect(() => {}, [successMessage]);
+  useEffect(() => {
+    // Reset the form and messages when selectedContact changes
+    if (formRef.current) {
+      formRef.current.reset();
+    }
+    setErrorMessage(undefined);
+    setSuccessMessage(undefined);
+  }, [props.selectedContact]);
 
   const handleCancel = () => {
     props.cancelUpdateContact();
   };
 
-  const handleAddContactFormSubmit = async (e: any) => {
+  console.log(props);
+
+  const handleUpdateContactFormSubmit = async (e: any) => {
     e.preventDefault();
     const name = e.target.elements.contactName.value.trim();
     const email = e.target.elements.contactEmail.value.trim();
     const phone = Number(e.target.elements.contactPhone.value.trim());
     // const id = e.target.elements.contactId.value.trim();
     let response = undefined;
-    response = await props.handleAddContact({
+    response = await props.handleUpdateContact({
+      contact_id: props.selectedContact.contact_id,
       contact_name: name,
       contact_email: email,
       contact_number: phone,
@@ -38,14 +48,16 @@ const AddContact = (props: any) => {
   return (
     <div className="border col-12 text-white p-2">
       <form
-        onSubmit={handleAddContactFormSubmit}
+        onSubmit={handleUpdateContactFormSubmit}
         ref={formRef}
         className="contact-form"
       >
         <input
           hidden
           name="contactId"
-          defaultValue={props.isUpdating ? props.selectedContact.id : ""}
+          defaultValue={
+            props.isUpdating ? props.selectedContact.contact_id : ""
+          }
         ></input>
         <div className="row p-2">
           <div className="col-12 text-white-50">
@@ -56,7 +68,9 @@ const AddContact = (props: any) => {
               className="form-control form-control-sm"
               placeholder="Name..."
               name="contactName"
-              defaultValue={props.isUpdating ? props.selectedContact.name : ""}
+              defaultValue={
+                props.isUpdating ? props.selectedContact.contact_name : ""
+              }
             ></input>
           </div>
           <div className="col-12 col-md-4 p-1">
@@ -64,7 +78,9 @@ const AddContact = (props: any) => {
               className="form-control form-control-sm"
               placeholder="Email..."
               name="contactEmail"
-              defaultValue={props.isUpdating ? props.selectedContact.email : ""}
+              defaultValue={
+                props.isUpdating ? props.selectedContact.contact_email : ""
+              }
             ></input>
           </div>
           <div className="col-12 col-md-4 p-1">
@@ -72,7 +88,9 @@ const AddContact = (props: any) => {
               className="form-control form-control-sm"
               placeholder="Phone..."
               name="contactPhone"
-              defaultValue={props.isUpdating ? props.selectedContact.phone : ""}
+              defaultValue={
+                props.isUpdating ? props.selectedContact.contact_number : ""
+              }
             ></input>
           </div>
 
@@ -114,4 +132,4 @@ const AddContact = (props: any) => {
     </div>
   );
 };
-export default AddContact;
+export default UpdateContact;

@@ -2,13 +2,21 @@ import { useEffect, useState } from "react";
 import Footer from "../Layout/Footer";
 import Header from "../Layout/Header";
 import AddContact from "./AddContact";
-import axios from "axios";
+import { useAppDispatch, useAppSelector } from "../../store";
+import {
+  createContact,
+  deleteContact,
+  fetchContacts,
+  updateContact,
+} from "../../slices/contactDataSlice";
+import Contact from "./Contact";
+import UpdateContact from "./UpdateContact";
 // import AddRandomContact from "./AddRandomContact";
 // import FavoriteContacts from "./FavoriteContacts";
 // import GeneralContacts from "./GeneralContacts";
 // import RemoveAllContact from "./RemoveAllContact";
 
-export type Contact = {
+export type ContactType = {
   contact_id: number;
   contact_name: String;
   contact_number: number;
@@ -17,36 +25,24 @@ export type Contact = {
 };
 
 const ContactIndex = () => {
-  const [contactList, setContactList] = useState<Contact[]>([]);
   const [isUpdating, setIsUpdating] = useState<Boolean>(false);
-  const [selectedContact, setSelectedContact] = useState<Contact | undefined>(
-    undefined
-  );
-  const [contacts, setContacts] = useState<Contact[] | undefined>();
+  const [selectedContact, setSelectedContact] = useState<
+    ContactType | undefined
+  >(undefined);
+  const userContacts = useAppSelector((state) => state.contactData.contacts);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
-    axios
-      .get("http://localhost:8080/api/getcontacts")
-      .then((response) => {
-        console.log(response);
-        if (response.status === 200) {
-          setContacts(response.data);
-        } else {
-          console.error("Error adding contact");
-        }
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-      });
-  }, []);
+    dispatch(fetchContacts());
+  }, [dispatch, isUpdating]);
 
-  const handleAddContact = (newContact: Contact) => {
+  const handleAddContact = async (newContact: ContactType) => {
     if (newContact.contact_name === "") {
       return { status: "failure", msg: "Please Enter a valid Name" };
     } else if (!newContact.contact_number) {
       return { status: "failure", msg: "Please Enter a valid Phone Number" };
     }
-    const duplicateRecord = contacts!.filter((x) => {
+    const duplicateRecord = userContacts!.filter((x) => {
       if (
         x.contact_email === newContact.contact_email &&
         x.contact_number === newContact.contact_number
@@ -56,108 +52,101 @@ const ContactIndex = () => {
     });
     if (duplicateRecord.length > 0) {
       return { status: "failure", msg: "Duplicate Record" };
-    } else {
-      const response = axios
-        .post("http://localhost:8080/api/createcontact", {
+    }
+
+    try {
+      const response = await dispatch(
+        createContact({
           contact_id: Math.floor(Math.random() * 100),
           contact_email: newContact.contact_email,
-          contact_isfavorite: false,
+          contact_isFavorite: false,
           contact_name: newContact.contact_name,
           contact_number: newContact.contact_number,
         })
-        .then((response) => {
-          console.log("Adding contact response", response);
-          if (response.status === 200) {
-            return { status: "success", msg: "Contact was added successfully" };
-            // console.log("Contact added successfully");
-          } else {
-            console.error("Error adding contact");
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-        });
-      return response;
-      // contactList.push(newFinalContact);
-      // setContactList(contactList);
+      );
+
+      console.log("Adding contact response", response);
+
+      if (createContact.fulfilled.match(response)) {
+        return response.payload;
+      } else {
+        return { status: "failure", msg: "Error adding contact" };
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      return { status: "failure", msg: "Error adding contact" };
     }
   };
 
-  const handleUpdateContact = (updatedContact: Contact) => {
-    // if (updatedContact.name === "") {
-    //   return { status: "failure", msg: "Please Enter a valid Name" };
-    // } else if (!updatedContact.phone) {
-    //   return { status: "failure", msg: "Please Enter a valid Phone Number" };
-    // }
+  const handleUpdateContact = async (updatedContact: ContactType) => {
+    console.log("Update Contact", updatedContact);
+    if (updatedContact.contact_name === "") {
+      return { status: "failure", msg: "Please Enter a valid Name" };
+    } else if (!updatedContact.contact_number) {
+      return { status: "failure", msg: "Please Enter a valid Phone Number" };
+    }
 
+    try {
+      // Dispatch the updateContact async thunk
+      const response = await dispatch(updateContact(updatedContact));
+
+      // Check the status in the response and update the state accordingly
+      if (updateContact.fulfilled.match(response)) {
+        setIsUpdating(false);
+        setSelectedContact(undefined);
+        return {
+          contactList: userContacts.map((obj: ContactType) => {
+            if (obj.contact_id === updatedContact.contact_id) {
+              return {
+                ...obj,
+                name: updatedContact.contact_name,
+                email: updatedContact.contact_email,
+                phone: updatedContact.contact_number,
+              };
+            }
+            return obj;
+          }),
+        };
+      } else {
+        return { status: "failure", msg: "Error updating contact" };
+      }
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      return { status: "failure", msg: "Error updating contact" };
+    }
+  };
+
+  const handleToggleFavorites = (contact: ContactType) => {
     // this.setState((prevState) => {
     //   return {
-    //     contactList: prevState.contactList.map((obj: Contact) => {
-    //       if (obj.id === updatedContact.id) {
-    //         return {
-    //           ...obj,
-    //           name: updatedContact.name,
-    //           email: updatedContact.email,
-    //           phone: updatedContact.phone,
-    //         };
+    //     contactList: prevState.contactList.map((obj: ContactType) => {
+    //       if (obj.id === contact.id) {
+    //         return { ...obj, isFavorite: !obj.isFavorite };
     //       }
     //       return obj;
     //     }),
-    //     isUpdating: false,
-    //     selectedContact: undefined,
     //   };
     // });
-    return { status: "success", msg: "Contact was updated successfully" };
   };
 
-  // const handleToggleFavorites = (contact: Contact) => {
-  //   // this.setState((prevState) => {
-  //   //   return {
-  //   //     contactList: prevState.contactList.map((obj: Contact) => {
-  //   //       if (obj.id === contact.id) {
-  //   //         return { ...obj, isFavorite: !obj.isFavorite };
-  //   //       }
-  //   //       return obj;
-  //   //     }),
-  //   //   };
-  //   // });
-  // };
-
-  // const handleDeleteContact = (contactId: Number) => {
-  //   // this.setState((prevState) => {
-  //   //   return {
-  //   //     contactList: prevState.contactList.filter((obj: Contact) => {
-  //   //       return obj.id !== contactId;
-  //   //     }),
-  //   //   };
-  //   // });
-  // };
-
-  // const handleAddRandomContact = (newContact: Contact) => {
-  //   const newFinalContact = {
-  //     ...newContact,
-  //     id: 1,
-  //     isFavorite: false,
-  //   };
-  //   // this.setState((prevState) => {
-  //   //   return {
-  //   //     contactList: prevState.contactList.concat([newFinalContact]),
-  //   //   };
-  //   // });
-  // };
+  const handleDeleteContact = async (contactId: number) => {
+    const response = await dispatch(deleteContact(contactId));
+    console.log(response);
+    if (response.payload.status === "success") await dispatch(fetchContacts());
+  };
 
   // const handleRemoveAllContact = () => {
   //   setContactList([]);
   // };
 
-  // const handleUpdateClick = (contact: Contact) => {
-  //   setSelectedContact(contact);
-  //   setIsUpdating(true);
-  // };
+  const handleUpdateClick = (contact: ContactType) => {
+    setIsUpdating(true);
+    setSelectedContact(contact);
+  };
 
   const handleCancelUpdateContact = () => {
-    // setSelectedContact(undefined);
-    // setIsUpdating(false);
+    setSelectedContact(undefined);
+    setIsUpdating(false);
   };
 
   return (
@@ -167,48 +156,48 @@ const ContactIndex = () => {
         <div className="row py-3">
           <div className="row py-2">
             <div className="col-8 offset-2 row">
-              <AddContact
-                handleAddContact={handleAddContact}
-                isUpdating={isUpdating}
-                selectedContact={selectedContact}
-                cancelUpdateContact={handleCancelUpdateContact()}
-                handleUpdateContact={handleUpdateContact}
-              />
+              {!isUpdating ? (
+                <AddContact handleAddContact={handleAddContact} />
+              ) : (
+                <UpdateContact
+                  isUpdating={isUpdating}
+                  selectedContact={selectedContact}
+                  cancelUpdateContact={handleCancelUpdateContact}
+                  handleUpdateContact={handleUpdateContact}
+                />
+              )}
             </div>
           </div>
         </div>
         <div>
-          <table className="table table-hover">
-            <thead>
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Contact No</th>
-              </tr>
-            </thead>
-            <tbody className="table-group-divider">
-              {contacts ? (
-                contacts.map((contact: Contact, id: number) => {
-                  return (
-                    <tr onClick={() => {}} key={id}>
-                      <th scope="row">{id}</th>
-                      <td>{contact.contact_name}</td>
-                      <td>{contact.contact_email}</td>
-                      <td>{contact.contact_number}</td>
-                      <td>
-                        <div></div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <div className="spinner-border" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-              )}
-            </tbody>
-          </table>
+          <div style={{ display: "flex", justifyContent: "space-around" }}>
+            <th scope="col">#</th>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Favorite</th>
+            <th scope="col">User Actions</th>
+          </div>
+          <div
+            style={{ borderTop: "2px solid currentcolor", paddingTop: "5px" }}
+          >
+            {userContacts ? (
+              userContacts.map((contact: ContactType, id: number) => {
+                return (
+                  <Contact
+                    contact={contact}
+                    favoriteClick={handleToggleFavorites}
+                    deleteContact={handleDeleteContact}
+                    updateClick={handleUpdateClick}
+                    key={id}
+                  />
+                );
+              })
+            ) : (
+              <div className="spinner-border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <Footer />
